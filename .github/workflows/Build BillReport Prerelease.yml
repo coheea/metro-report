@@ -1,0 +1,62 @@
+name: Build BillReport Prerelease
+
+on:
+  workflow_dispatch:
+
+env:
+  Catalog: ${{ github.workspace }}/metro-pipeline/catalog/metrocatalog.yaml
+
+permissions: write-all
+
+jobs: 
+  update_catalog:
+    runs-on: windows-2019
+
+    steps:
+    
+    - name: Generate a token
+      id: generate_token
+      uses: tibdex/github-app-token@v1
+      with:
+        app_id: ${{ secrets.APP_ID }}
+        private_key: ${{ secrets.PRIVATE_KEY }}
+    
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    
+    - name: Checkout setup-scripts
+      uses: actions/checkout@v3
+      with:
+        repository: aaron-cohee_arincoau/metro-technical-setup-scripts
+        token: ${{ steps.generate_token.outputs.token }}
+        path: ${{ github.workspace }}\metro-technical-setup-scripts
+        fetch-depth: 1
+    
+    - name: Checkout pipeline library
+      uses: actions/checkout@v3
+      with:
+        repository: aaron-cohee_arincoau/metro-pipeline
+        token: ${{ steps.generate_token.outputs.token }}
+        path: ${{ github.workspace }}\metro-pipeline
+        fetch-depth: 1
+    
+    - name: Get current date
+      shell: pwsh
+      run: |
+        $date = Get-Date
+        $DateStr = $Date.ToString("yyyyMMdd")
+        echo ("CurrentDate=" + $DateStr) >> $env:GITHUB_ENV 
+
+    - name: Set the BuildNumber
+      shell: pwsh
+      run: |
+        echo ("BuildNumber=" + "BillReport" + "_" + "${{env.CurrentDate}}.${{ github.run_number }}") >> $env:GITHUB_ENV
+    
+    - name: Update catalog with new build
+      shell: pwsh
+      run: |
+        if("${{ inputs.PackageFile }}" -ne ""){
+          .\metro-technical-setup-scripts\common\utility\Update-Catalog.ps1 -ParentDirectory ${{ github.workspace }}/metro-pipeline -Repository ${{ github.repository }} -PackageName BillReport -AppName acohee-bot -AppId 387745 -Environment dev -NextEnvironment sit -CatalogFile ${{ env.Catalog }} -BuildNumber ${{env.BuildNumber}} -PackageFile "BillReport-Setup.exe" -CopyEntireFolder false -TargetFolder setup-files -Token ${{ steps.generate_token.outputs.token }}
+        } else {
+          .\metro-technical-setup-scripts\common\utility\Update-Catalog.ps1 -ParentDirectory ${{ github.workspace }}/metro-pipeline -Repository ${{ github.repository }} -PackageName BillReport -AppName acohee-bot -AppId 387745 -Environment dev -NextEnvironment sit -CatalogFile ${{ env.Catalog }} -BuildNumber ${{env.BuildNumber}} -CopyEntireFolder false -TargetFolder setup-files -Token ${{ steps.generate_token.outputs.token }}
+        }
